@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BudgetBuddy</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #f0f4ff, #ffffff);
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .card {
+      border-radius: 1rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    .income { color: green; }
+    .expense { color: red; }
+  </style>
+</head>
+<body class="container py-5">
+  <h1 class="text-center text-primary mb-4">💸 BudgetBuddy</h1>
+
+  <ul class="nav nav-tabs mb-4" id="tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="transactions-tab" data-bs-toggle="tab" data-bs-target="#transactions" type="button" role="tab">Транзакции</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="topup-tab" data-bs-toggle="tab" data-bs-target="#topup" type="button" role="tab">💳 Пополнение</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="ideas-tab" data-bs-toggle="tab" data-bs-target="#ideas" type="button" role="tab">💡 Идеи</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="charts-tab" data-bs-toggle="tab" data-bs-target="#charts" type="button" role="tab">📈 Графики</button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="transactions" role="tabpanel">
+      <div class="row g-4">
+        <div class="col-12">
+          <div class="card p-4 text-center">
+            <h3>Баланс: <span id="balance" class="fw-bold">0₸</span></h3>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card p-4">
+            <h5>Добавить транзакцию</h5>
+            <form id="transaction-form">
+              <input type="number" class="form-control mb-2" name="amount" placeholder="Сумма" required />
+              <select class="form-select mb-2" name="type" required>
+                <option value="income">Доход</option>
+                <option value="expense">Расход</option>
+              </select>
+              <input type="text" class="form-control mb-2" name="category" placeholder="Категория" required />
+              <input type="date" class="form-control mb-2" name="date" required />
+              <input type="text" class="form-control mb-2" name="description" placeholder="Описание" />
+              <button type="submit" class="btn btn-primary w-100">Добавить</button>
+            </form>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card p-4">
+            <h5>История транзакций</h5>
+            <ul id="transaction-list" class="list-group mt-3"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="topup" role="tabpanel">
+      <div class="card p-4">
+        <h5>💳 Пополнить баланс (шуточно)</h5>
+        <form id="topup-form">
+          <input type="number" class="form-control mb-2" name="topupAmount" placeholder="Сумма пополнения" required />
+          <select class="form-select mb-2" name="card">
+            <option>Карта Халва — 1234 5678 9012 3456</option>
+            <option>Банковская карта — 0000 1111 2222 3333</option>
+            <option>Волшебный кошелёк — 9999 8888 7777 6666</option>
+          </select>
+          <input type="text" class="form-control mb-2" placeholder="Имя владельца карты (например, Иван Царь)" required />
+          <button class="btn btn-success w-100">Пополнить (не по-настоящему 😉)</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="ideas" role="tabpanel">
+      <div class="card p-4">
+        <h5>💡 Советы по управлению финансами</h5>
+        <ul>
+          <li>Откладывайте 10% от дохода</li>
+          <li>Следите за регулярными подписками</li>
+          <li>Покупайте по списку</li>
+          <li>Сравнивайте цены перед покупкой</li>
+          <li>Ведите бюджет в этом приложении 🙂</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="charts" role="tabpanel">
+      <div class="card p-4">
+        <h5>📊 Доходы vs Расходы</h5>
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let transactions = JSON.parse(localStorage.getItem("transactions") || "[]");
+
+    function saveTransactions() {
+      localStorage.setItem("transactions", JSON.stringify(transactions));
+    }
+
+    function updateBalance() {
+      const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+      document.getElementById("balance").textContent = (income - expense) + "₸";
+    }
+
+    function renderTransaction(t) {
+      const li = document.createElement("li");
+      li.className = "list-group-item d-flex justify-content-between align-items-center";
+      li.innerHTML = `
+        <div>
+          <strong>${t.category}</strong><br/>
+          <small>${new Date(t.date).toLocaleDateString()} — ${t.description || "-"}</small>
+        </div>
+        <span class="fw-bold ${t.type === 'income' ? 'income' : 'expense'}">
+          ${t.type === 'income' ? '+' : '-'}${t.amount}₸
+        </span>`;
+      return li;
+    }
+
+    function renderTransactions() {
+      const list = document.getElementById("transaction-list");
+      list.innerHTML = "";
+      transactions.forEach(t => list.appendChild(renderTransaction(t)));
+      renderPieChart();
+      updateBalance();
+    }
+
+    document.getElementById("transaction-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.amount = parseFloat(data.amount);
+      transactions.push(data);
+      saveTransactions();
+      form.reset();
+      renderTransactions();
+    });
+
+    document.getElementById("topup-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const form = e.target;
+      const topupAmount = parseFloat(form.topupAmount.value);
+      const transaction = {
+        amount: topupAmount,
+        type: 'income',
+        category: 'Пополнение',
+        date: new Date().toISOString(),
+        description: `Пополнение через карту: ${form.card.value}`
+      };
+      transactions.push(transaction);
+      saveTransactions();
+      form.reset();
+      renderTransactions();
+    });
+
+    function renderPieChart() {
+      const ctx = document.getElementById('pieChart').getContext('2d');
+      const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+      if (window.pieChartInstance) window.pieChartInstance.destroy();
+      window.pieChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Доходы', 'Расходы'],
+          datasets: [{
+            data: [income, expense],
+            backgroundColor: ['#198754', '#dc3545']
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    renderTransactions();
+  </script>
+</body>
+</html>
